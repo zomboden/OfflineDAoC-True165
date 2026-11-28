@@ -24,6 +24,42 @@ namespace DOL.GS.Tests
             Assert.That(AutonomousBattlegroundWave.AllowsAssault(inside, launched, nearKeep, elapsed), Is.EqualTo(allowed));
         }
 
+        [TestCase(3, true, 0, AutonomousBattlegroundWave.RallyDecision.Hold)]
+        [TestCase(6, true, 10_000, AutonomousBattlegroundWave.RallyDecision.Push)]
+        [TestCase(8, false, 49_999, AutonomousBattlegroundWave.RallyDecision.Hold)]
+        [TestCase(4, false, 50_000, AutonomousBattlegroundWave.RallyDecision.Push)]
+        [TestCase(3, true, 50_000, AutonomousBattlegroundWave.RallyDecision.Regroup)]
+        public void GatePushWaitsForSupportButCanProceedWithoutAHealer(int rallied, bool healer, long elapsed,
+            AutonomousBattlegroundWave.RallyDecision decision)
+        {
+            Assert.That(AutonomousBattlegroundWave.DecideRally(rallied, healer, elapsed), Is.EqualTo(decision));
+        }
+
+        [TestCase(3, 10_000, false)]
+        [TestCase(4, 34_999, true)]
+        [TestCase(8, 35_000, false)]
+        public void OnlyARecoverableForceRegroupsAndTheWaitIsBounded(int inside, long elapsed, bool shouldRegroup)
+        {
+            Assert.That(AutonomousBattlegroundWave.CanRegroup(inside, 100_000 + elapsed,
+                100_000 + AutonomousBattlegroundWave.RegroupMilliseconds), Is.EqualTo(shouldRegroup));
+        }
+
+        [Test]
+        public void ACoordinatedWaveCanSurviveCasualtiesAndReachTheBreach()
+        {
+            Assert.That(AutonomousBattlegroundWave.WaveSize(11), Is.EqualTo(8));
+            Assert.That(AutonomousBattlegroundWave.DecideRally(3, false, 15_000),
+                Is.EqualTo(AutonomousBattlegroundWave.RallyDecision.Hold));
+            Assert.That(AutonomousBattlegroundWave.DecideRally(6, true, 30_000),
+                Is.EqualTo(AutonomousBattlegroundWave.RallyDecision.Push));
+
+            Assert.That(KeepRaidDoors.NextRaidGate([(1, true, 2_000f), (2, true, 1_500f)]), Is.Zero);
+            Assert.That(AutonomousBattlegroundWave.AllowsAssault(6, true, 5, 100_000), Is.True);
+            Assert.That(KeepRaidDoors.NextRaidGate([(1, false, 2_000f), (2, true, 1_500f)]), Is.EqualTo(1));
+            Assert.That(AutonomousBattlegroundWave.AllowsAssault(5, true, 4, 185_000), Is.True);
+            Assert.That(KeepRaidDoors.NextRaidGate([(1, false, 2_000f), (2, false, 1_500f)]), Is.EqualTo(-1));
+        }
+
         // ---- the defense loop (BG250 D1, BG252 S3, BG253 F2)
 
         [TestCase((ushort)250, false)]

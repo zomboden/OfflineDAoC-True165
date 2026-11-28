@@ -24,6 +24,7 @@ namespace DOL.GS
         // Teleporter trips into a battleground have no walking alternative.
         private const double BattlegroundNoWalkSeconds = 3600;
         private const int BattlegroundGateGuardRadius = 450;
+        private const int BattlegroundGuardClearRadius = 1_300;
         private long _nextBattlegroundRoamTick;
         private Vector3? _battlegroundRoamPoint;
         private int _battlegroundApproachDoor;
@@ -81,7 +82,7 @@ namespace DOL.GS
                 if (shutGate != null)
                 {
                     _battlegroundGatePassed = false;
-                    if (TryRunSiegeJob(bot)) return true;
+                    if (!classic && TryRunSiegeJob(bot)) return true;
                 }
                 else
                 {
@@ -94,20 +95,23 @@ namespace DOL.GS
                         LeaveRamCrew(bot);
                 }
                 // The realm assaults as one wave (AutonomousBattlegroundWave); a bot in a fight finishes it first.
-                if (!bot.InCombat && shutGate != null &&
-                    AutonomousBattlegroundWave.ShouldGather(bot, bracket, central, out Vector3 staging, out string gathered))
+                if (!bot.InCombat && shutGate != null)
                 {
-                    if (Vector3.DistanceSquared(new(bot.X, bot.Y, bot.Z), staging) > 250 * 250)
-                        IssuePath(bot, staging);
-                    else
-                    {
-                        bot.StopMovingOnPath();
-                        bot.StopMoving();
-                    }
-                    SetBattlegroundStatus(bot, bracket, "Gathering for the assault", $"{central.Name}: {gathered}");
-                    return true;
+                    if (AutonomousBattlegroundWave.ShouldGather(bot, bracket, central, out Vector3 staging, out string gathered))
+                        return HoldBattlegroundAssault(bot, bracket, central, staging, "Gathering for the assault", gathered);
+                    if (classic && AutonomousBattlegroundWave.TryHoldForPush(bot, bracket, central, shutGate,
+                            out Vector3 rally, out string ready))
+                        return HoldBattlegroundAssault(bot, bracket, central, rally, "Forming for the gate push", ready);
                 }
-                GameLiving target = FindReachableEnemyDoor(bot, shutGate, classic);
+
+                // Keep the ordinary threat scan and combat AI. At the gate, agree on a nearby
+                // reachable guard before spending the push's time on the door or a siege errand.
+                GameLiving target = classic && shutGate != null && bot.IsWithinRadius(shutGate, BattlegroundGuardClearRadius)
+                    ? FindRvrTarget(bot, shutGate)
+                    : null;
+                if (target == null && classic && shutGate != null && TryRunSiegeJob(bot))
+                    return true;
+                target ??= FindReachableEnemyDoor(bot, shutGate, classic);
                 // The normal threat scan and retaliation have already had their turn. Avoid pulling
                 // the force off the march to chase optional keep guards before it reaches the gate.
                 bool marchBeforeGuards = classic && shutGate != null && !bot.InCombat &&
@@ -115,7 +119,10 @@ namespace DOL.GS
                 if (target == null && marchBeforeGuards && MarchToBattlegroundGate(bot, bracket, central, shutGate, classic))
                     return true;
 
-                target ??= FindRvrTarget(bot);
+                // With both gates open, use the explicit breach and lord walk below. A generic
+                // guard scan could otherwise pick up a distant guard and pull the push away.
+                if (!classic)
+                    target ??= FindRvrTarget(bot);
                 if (target != null)
                 {
                     bot.StopMovingOnPath();
@@ -331,6 +338,20 @@ namespace DOL.GS
         private static GameLiving FindReachableEnemyDoor(GameBot bot, GameKeepDoor door, bool classic) =>
             door != null && bot.IsWithinRadius(door, classic ? BattlegroundDoorMeleeReach(door) : BattlegroundGateGuardRadius) &&
             GameServer.ServerRules.IsAllowedToAttack(bot, door, true) ? door : null;
+
+        private bool HoldBattlegroundAssault(GameBot bot, BattlegroundBrackets.Bracket bracket,
+            AbstractGameKeep keep, Vector3 point, string activity, string progress)
+        {
+            if (Vector3.DistanceSquared(new(bot.X, bot.Y, bot.Z), point) > 250 * 250)
+                IssuePath(bot, point);
+            else
+            {
+                bot.StopMovingOnPath();
+                bot.StopMoving();
+            }
+            SetBattlegroundStatus(bot, bracket, activity, $"{keep.Name}: {progress}");
+            return true;
+        }
 
         private static int BattlegroundDoorMeleeReach(GameKeepDoor door) =>
             GameBot.ClassicBaseMeleeAttackRange + GameDoorBase.MeleeReachBonus(door, true);

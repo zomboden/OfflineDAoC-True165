@@ -2286,7 +2286,7 @@ namespace DOL.GS
         // Battlegrounds fix 2026-11-12: the bot's checked keep-guard targets, held briefly (AutonomousRvrGuardTargets).
         private GameKeepGuard[] _rvrGuardTargets = [];
         private long _rvrGuardTargetsUntil;
-        private int _rvrGuardTargetsKeep;
+        private int _rvrGuardTargetsKeep, _rvrGuardTargetsDoor;
         private Vector3 _rvrGuardTargetsSpot;
         private string _rvrGuardKeepDestination;
         private AbstractGameKeep _rvrGuardKeep;
@@ -2304,7 +2304,7 @@ namespace DOL.GS
             return _rvrGuardKeep != null && _rvrGuardKeep.Region == bot.CurrentRegionID ? _rvrGuardKeep : null;
         }
 
-        private GameLiving FindRvrTarget(GameBot bot)
+        private GameLiving FindRvrTarget(GameBot bot, GameKeepDoor battlegroundGate = null)
         {
             // Player/bot/pet threats are acquired by the bounded early frontier
             // scan, before staging/recovery can consume a turn. Do not repeat
@@ -2326,10 +2326,11 @@ namespace DOL.GS
             AutonomousRvrGuardTargets.KeepCandidates candidates = AutonomousRvrGuardTargets.Candidates(targetKeep, bot.Realm, now);
             bool closedDoor = candidates.Sealed;
             Vector3 here = new(bot.X, bot.Y, bot.Z);
+            int doorId = battlegroundGate?.DoorId ?? 0;
             GameKeepGuard[] guards;
-            if (AutonomousRvrGuardTargets.HoldValid(now, _rvrGuardTargetsUntil, targetKeep.KeepID, _rvrGuardTargetsKeep,
+            if (_rvrGuardTargetsDoor == doorId && AutonomousRvrGuardTargets.HoldValid(now, _rvrGuardTargetsUntil, targetKeep.KeepID, _rvrGuardTargetsKeep,
                     Vector3.DistanceSquared(here, _rvrGuardTargetsSpot)))
-                guards = _rvrGuardTargets
+                guards = battlegroundGate != null ? _rvrGuardTargets : _rvrGuardTargets
                     .Where(guard => guard.IsAlive && guard.ObjectState == GameObject.eObjectState.Active && guard.Realm != bot.Realm &&
                                     (!closedDoor || guard is not GuardLord) && GameServer.ServerRules.IsAllowedToAttack(bot, guard, true))
                     .ToArray();
@@ -2339,6 +2340,8 @@ namespace DOL.GS
                 GameKeepGuard[] inReach = candidates.Guards
                     .Where(guard => guard.IsAlive && guard.CurrentRegionID == bot.CurrentRegionID &&
                                     bot.IsWithinRadius(guard, TargetSearchRadius) && (!closedDoor || guard is not GuardLord) &&
+                                    (battlegroundGate == null || guard is not GuardLord &&
+                                        guard.IsWithinRadius(battlegroundGate, BattlegroundGuardClearRadius)) &&
                                     GameServer.ServerRules.IsAllowedToAttack(bot, guard, true))
                     .ToArray();
                 float[] distances = inReach.Select(guard => (float)bot.GetDistanceTo(guard)).ToArray();
@@ -2359,10 +2362,33 @@ namespace DOL.GS
                 _rvrGuardTargets = guards;
                 _rvrGuardTargetsUntil = now + AutonomousRvrGuardTargets.BotHoldMilliseconds;
                 _rvrGuardTargetsKeep = targetKeep.KeepID;
+                _rvrGuardTargetsDoor = doorId;
                 _rvrGuardTargetsSpot = here;
             }
             // Both attacking realms seek the native capture, not an endless
             // guard patrol. Nearby PvP is handled first by the threat scan.
+            if (battlegroundGate != null)
+            {
+                // All members prefer the same guard when their existing LOS/corridor checks
+                // agree. Cache behavior and the frontier target policy stay as before.
+                GameKeepGuard focus = null;
+                int nearest = int.MaxValue;
+                foreach (GameKeepGuard guard in guards)
+                {
+                    if (!guard.IsAlive || guard.ObjectState != GameObject.eObjectState.Active ||
+                        guard.Realm == bot.Realm || guard.CurrentRegionID != bot.CurrentRegionID ||
+                        !AutonomousRvrAssist.Callable(guard.IsMezzed) || !guard.IsWithinRadius(battlegroundGate, BattlegroundGuardClearRadius) ||
+                        !GameServer.ServerRules.IsAllowedToAttack(bot, guard, true))
+                        continue;
+                    int distance = guard.GetDistanceTo(battlegroundGate);
+                    if (distance < nearest || (distance == nearest && focus != null && guard.ObjectID < focus.ObjectID))
+                    {
+                        focus = guard;
+                        nearest = distance;
+                    }
+                }
+                return focus;
+            }
             if (!closedDoor && guards.OfType<GuardLord>().FirstOrDefault() is { } exposedLord) return exposedLord;
             return SelectDistributedRvrTarget(bot, guards.Cast<GameLiving>().ToArray());
         }

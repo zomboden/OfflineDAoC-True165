@@ -4,6 +4,8 @@ The newest version is first.
 
 ## 1.1 (coming next)
 
+- Autonomous battleground attackers rally for a coordinated gate push, clear nearby guards together, and regroup after losses.
+  They can use siege or melee against closed gates and head for the lord when the breach is open.
 - The experimental cast bar is retained in the client source and disabled in game.
 - Weapon glows use the attachment points from the original client. Combat and casting control when they light up.
 - Bow and crossbow shots show the original arrow in flight. Confirmed hits can leave arrows in the target for 30 seconds.
