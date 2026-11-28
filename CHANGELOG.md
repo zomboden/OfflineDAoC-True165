@@ -4,6 +4,7 @@ The newest version is first.
 
 ## 1.1 (coming next)
 
+- The experimental cast bar is retained in the client source and disabled in game.
 - Weapon glows use the attachment points from the original client. Combat and casting control when they light up.
 - Bow and crossbow shots show the original arrow in flight. Confirmed hits can leave arrows in the target for 30 seconds.
 - Vendo and Stag spell effects use the form's original model scale, including the smaller Dwarf and Lurikeen forms.

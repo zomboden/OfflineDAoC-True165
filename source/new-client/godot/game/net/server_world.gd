@@ -1702,9 +1702,10 @@ func _cast(d: Dictionary) -> void:
 
 
 func _cast_begin(oid: int, v: Node, ce: int, seconds: float) -> void:
-	var anims: Array = SpellFx.effect(ce).get("anims", [])
+	var effect := SpellFx.effect(ce)
+	var anims: Array = effect.get("anims", [])
 	if v is Player:
-		(v as Player).cast_start(anims, seconds)
+		(v as Player).cast_start(anims, seconds, String(effect.get("name", "")))
 	elif v is Npc:
 		(v as Npc).cast_start(anims, seconds)
 	_gathers[oid] = [ce, SpellFx.begin(ce, v as Node3D, _sounds_of(v)),

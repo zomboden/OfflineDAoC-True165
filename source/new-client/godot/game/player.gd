@@ -629,12 +629,16 @@ var _cast_clips := ["cast_start", "cast_mid", "cast_end"]
 ## seconds: the cast's time (the server's SpellCastAnimation); the pose then ends on its own CAST_GRACE after it
 ## if neither the spell nor an interruption ever comes (owner 2026-10-14: a heal on a companion that died mid-cast, or
 ## running off while casting, left the casting pose stuck - the server dropped the cast without a word).
+signal cast_bar_changed(spell_name: String, seconds: float)
+
 const CAST_GRACE := 2.0
 var _cast_left := INF
 var _cast_weapon_glow := false
 
 
-func cast_start(clips: Array = [], seconds := -1.0) -> void:
+func cast_start(clips: Array = [], seconds := -1.0, spell_name := "") -> void:
+	if seconds > 0.0:
+		cast_bar_changed.emit(spell_name, seconds)
 	casting_spell = true
 	_cast_weapon_glow = true
 	WeaponModels.cast_glow(_gear, true)
@@ -649,6 +653,7 @@ func cast_start(clips: Array = [], seconds := -1.0) -> void:
 
 
 func cast_end(landed := false) -> void:
+	cast_bar_changed.emit("", 0.0)
 	casting_spell = false
 	if landed:
 		_one_shot(_cast_clips[2])
@@ -680,6 +685,7 @@ func sit(on: bool) -> void:
 
 
 func die() -> void:
+	cast_bar_changed.emit("", 0.0)
 	_cast_weapon_glow = false
 	dead = true
 	sitting = false

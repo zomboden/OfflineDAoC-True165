@@ -94,6 +94,10 @@ var player: Node3D
 var sky: Node                            # SkySystem: the game clock on the time display
 var hidden_all := false
 
+# Cast bar preview is disabled in normal play.
+const CAST_BAR_PREVIEW := false
+const CastBarPreview := preload("res://game/ui/cast_bar_preview.gd")
+
 
 func _ready() -> void:
 	layer = 5
@@ -110,6 +114,15 @@ func _ready() -> void:
 	drop.ui = self
 	root.add_child(drop)
 	_build()
+	if CAST_BAR_PREVIEW and player is Player:
+		var bar := CastBarPreview.new()
+		root.add_child(bar)
+		bar.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_KEEP_SIZE)
+		bar.offset_left = -CastBarPreview.WIDTH / 2.0
+		bar.offset_right = CastBarPreview.WIDTH / 2.0
+		bar.offset_top = -CastBarPreview.HEIGHT - 42.0
+		bar.offset_bottom = -42.0
+		(player as Player).cast_bar_changed.connect(bar.update_cast)
 
 
 func _rescale() -> void:
