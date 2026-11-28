@@ -164,7 +164,10 @@ func _build_model() -> void:
 			model.rotation.y = 0.0
 			# the spawn's size AND the client's own scale for the model (monsters.csv column 12, e.g. crabs 30%, giants
 			# 500%) - the glTF is at the NIF's raw size (owner 2026-10-10: sand crabs were drawn gigantic)
-			model.scale *= size * float(info.get("scale", 1.0))
+			var scale_factor := size * float(info.get("scale", 1.0))
+			model.scale *= scale_factor
+			if String(info.get("figure", "")) in ["vendo_man", "stag_man"]:
+				model.set_meta("period_fx_scale", scale_factor)
 			var players := model.find_children("*", "AnimationPlayer", true, false)
 			if players.size() > 0:
 				anim = players[0]
@@ -284,6 +287,7 @@ var _weapon_colors := {}                       # slot -> the item's dye (tints.c
 var _weapon_emblems := {}                      # slot -> a shield's guild emblem, 0 none
 var _weapon_nodes: Array = []
 var _weapons_drawn := false
+var _cast_weapon_glow := false
 
 
 ## A swing with a melee weapon while the ranged set (a bow, a bard's drum) is out: the set that weapon belongs to is
@@ -337,7 +341,9 @@ func _hang_weapons(drawn: bool) -> void:
 	# one-hander on the hip) only for a figure - companions and gamebots never showed theirs (owner 2026-11-06, via the
 	# server chat: "same as the player's own character"); armour stays off (the figure is dressed elsewhere)
 	_weapon_nodes = Player.dress(_weapon_root if _weapon_root is Fig3Figure else skel_root, item_at, active,
-			drawn or not can_sheathe, false)
+			drawn or not can_sheathe, false, {}, drawn)
+	if _cast_weapon_glow:
+		WeaponModels.cast_glow(_weapon_nodes, true)
 	if int(spawn.get("flags", 0)) & FLAG_GHOST:                # a spirit's weapons are as ghostly as it is
 		for w in _weapon_nodes:
 			if is_instance_valid(w):
@@ -852,6 +858,9 @@ func _process_view(delta: float, cam: Camera3D) -> void:
 	# only on change: setting a transform (even to the same value) pushes new transforms to every child - ~34 mesh
 	# parts, the skeleton, the labels, the click shape - and 265 standing NPCs did that every frame (crowd_probe)
 	if position != state.pos:
+		if _cast_weapon_glow and not casting_spell and Vector2(position.x - state.pos.x, position.z - state.pos.z).length_squared() > 0.0001:
+			_cast_weapon_glow = false
+			_clear_cast_glow.call_deferred()
 		# a step up or down (stairs, a ledge) is drawn over a moment instead of at once (reset day C12, 2026-11-05:
 		# NPCs jerked up and down stairs as you did); its real height (state.pos) is unchanged. A bigger jump - a
 		# teleport, a fall - is drawn at once.
@@ -880,6 +889,8 @@ func _process_view(delta: float, cam: Camera3D) -> void:
 		_cast_left -= delta
 		if _cast_left < -CAST_GRACE:                     # the spell's effect never came (out of view): stop holding
 			casting_spell = false
+			_cast_weapon_glow = false
+			_clear_cast_glow.call_deferred()
 	if _died and state and state.alive:
 		_died = false                                 # (revived: it can die again)
 	if anim == null or _action_left > 0.0:
@@ -1064,6 +1075,8 @@ func cast_start(clips: Array, seconds: float) -> void:
 	if anim and not anim.has_animation(_cast_clips[0]) and anim.has_animation("cast"):
 		_cast_clips[0] = "cast"                            # monster figures: one cast clip
 	casting_spell = true
+	_cast_weapon_glow = true
+	WeaponModels.cast_glow(_weapon_nodes, true)
 	_cast_left = seconds
 	_one_shot(_cast_clips[0])
 
@@ -1077,6 +1090,13 @@ func cast_end(landed := false) -> void:
 	else:
 		_action_left = 0.0
 		_shown_mode = -1
+		_cast_weapon_glow = false
+		WeaponModels.cast_glow(_weapon_nodes, false)
+
+
+func _clear_cast_glow() -> void:
+	if not _cast_weapon_glow:
+		WeaponModels.cast_glow(_weapon_nodes, false)
 
 
 const CAST_GRACE := 2.0

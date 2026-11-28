@@ -1556,7 +1556,13 @@ namespace DOL.GS
             }
             release ??= _deathLocation;
             // beside a bindstone, never on it (owner 2026-11-10: bots stood up on top of Huginfell's stone)
-            release = magMellLanding ?? BotReleaseBindPoints.BesideBindstone(releaseRegion, release, releaseSeed);
+            if (IsAutonomousWorldBot && Classic165Mode.IsOn && BotReleaseBindPoints.IsSvasudBind(releaseRegion, release))
+            {
+                // The courtyard side has a proved exit; ordinary randomized landings can cross the keep wall.
+                release = BotReleaseBindPoints.SvasudLanding(releaseRegion, release, releaseSeed) ?? release;
+            }
+            else
+                release = magMellLanding ?? BotReleaseBindPoints.BesideBindstone(releaseRegion, release, releaseSeed);
             // Transfer the corpse first: a failed MoveTo must not revive the bot
             // at its killer or cause HandleDeathRecovery to discard its timer.
             if (!MoveCorpseForRelease(releaseRegion, release.X, release.Y, release.Z, Heading))

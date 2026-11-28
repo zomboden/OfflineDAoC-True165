@@ -38,7 +38,9 @@ namespace DOL.GS
         /// <summary>Companion controls (veteran review M7 and the owner's twist option, 2026-11-11; CompanionControls165).</summary>
         public const byte KindTwist = 40, KindStance = 41, KindCrowdControl = 42, KindPetJob = 43, KindWeapon = 44,
             KindStag = 47, KindCriticalShot = 48, KindOpeningStun = 49, KindEngage = 50, KindSlamSwap = 51,
-            KindTripleWield = 52, KindBuffPriority = 53, KindRunemasterBladeturn = 54, KindPetFocusShield = 55;
+            KindTripleWield = 52, KindBuffPriority = 53, KindRunemasterBladeturn = 54, KindPetFocusShield = 55,
+            KindMysticCrystalLore = 56, KindPotions = 57, KindGroupHealing = 58;
+        public const string MysticCrystalLoreKey = "mcl", PotionsKey = "potions", GroupHealingKey = "groupheals";
         private const string PetFocusShieldKey = "petfocusshield";
 
         /// <summary>The fourth Role choice of every healer's Role row (owner 2026-11-11; CompanionSpellOptions165).</summary>
@@ -56,6 +58,15 @@ namespace DOL.GS
             new(KindAggro, "aggro", "Taunt", ["Automatic", "Always", "Never (detaunt)"],
                 bot => bot.StylesTaunt?.Count > 0 || bot.StylesDetaunt?.Count > 0),
             new(KindHealAt, "healat", "Heal at", ["Automatic", "Early (90%)", "Late (50%)"], bot => bot.CanCastHealSpells),
+            new(KindMysticCrystalLore, MysticCrystalLoreKey, "Mystic Crystal Lore",
+                ["Automatic (below 40% power)", "Save until below 25% power", "Off"],
+                bot => bot.GetAbility(AutonomousBotRealmAbilities.MysticCrystalLore) != null),
+            new(KindPotions, PotionsKey, "Potions",
+                ["Automatic (combat emergencies)", "Combat and recovery", "Off"], _ => true),
+            new(KindGroupHealing, GroupHealingKey, "Group heals",
+                ["Automatic", "Prefer spread heal", "Prefer group heal", "Single-target outside emergencies"],
+                bot => bot.HealGroup != null || bot.HealSpread != null || bot.HealInstantGroup != null ||
+                    bot.HealOverTimeGroup != null || bot.HealOverTimeInstantGroup != null),
             new(KindDebuff, "debuff", "Debuff before nuking", ["Automatic", "Always", "Never"],
                 bot => (bot.HarmfulSpells ?? []).Concat(bot.InstantHarmfulSpells ?? []).Any(BotCasterPriority.IsDebuff) ||
                        DebuffLines(bot).Count > 0),

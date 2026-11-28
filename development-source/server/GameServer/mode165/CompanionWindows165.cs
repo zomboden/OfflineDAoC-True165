@@ -637,6 +637,7 @@ namespace DOL.GS
 
         private static void Saved(GamePlayer player, GameBot bot, DbInventoryItem given, DbInventoryItem returned)
         {
+            BotPotions165.InventoryChanged(bot);
             if (returned != null)
             {
                 returned.Dirty = true;

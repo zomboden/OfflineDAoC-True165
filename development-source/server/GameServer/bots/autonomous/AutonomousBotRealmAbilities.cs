@@ -419,7 +419,17 @@ public static class AutonomousBotRealmAbilities
                 // the one radius count, only for a bot whose Volcanic Pillar is ready and only while it fights
                 if (ability.KeyName == VolcanicPillar && situation.Value.InCombat)
                     situation = situation.Value with { EnemiesAtTarget = EnemiesAtTarget(bot) };
-                if (!Wants(ability.KeyName, situation.Value)) continue;
+                if (ability.KeyName == MysticCrystalLore && Classic165Mode.IsOn && bot.IsPlayerCompanion)
+                {
+                    int choice = CompanionOptions165.Choice(bot, CompanionOptions165.MysticCrystalLoreKey);
+                    var status = situation.Value;
+                    if (choice == 2 || status.InCombat || status.Controlled || status.Casting ||
+                        status.Mana >= (choice == 1 ? 25 : 40) || status.Sitting && !bot.IsRecoveryResting)
+                        continue;
+                    if (status.Sitting)
+                        bot.WakeRecoveryRest();
+                }
+                else if (!Wants(ability.KeyName, situation.Value)) continue;
                 if (ability.KeyName == PerfectRecovery) bot.TargetObject = deadMember;
             }
             else if (!Wanted(bot, ability.KeyName)) continue;

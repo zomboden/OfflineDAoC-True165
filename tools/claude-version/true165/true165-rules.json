@@ -718,6 +718,98 @@
  "starter_guilds": [],
  "updates": [
   {
+   "sql": "UPDATE ItemTemplate SET SpellID=31125 WHERE Id_nb='Shadow_Whispers_Bow' AND coalesce(SpellID,0)=0 AND MaxCharges=10",
+   "reason": "Restore documented period charge from Allakhazam 7430 (ItemTemplate)"
+   },
+  {
+   "sql": "UPDATE ItemUnique SET SpellID=31125 WHERE substr(Id_nb,1,length('Shadow_Whispers_Bow#'))='Shadow_Whispers_Bow#' AND coalesce(SpellID,0)=0 AND MaxCharges=10",
+   "reason": "Restore documented period charge from Allakhazam 7430 (ItemUnique)"
+   },
+  {
+   "sql": "UPDATE ItemTemplate SET SpellID=92220 WHERE Id_nb='Shimmering_Ravaging_Chaos_Helm' AND coalesce(SpellID,0)=0 AND MaxCharges=10",
+   "reason": "Restore documented period charge from Allakhazam 10648 (ItemTemplate)"
+   },
+  {
+   "sql": "UPDATE ItemUnique SET SpellID=92220 WHERE substr(Id_nb,1,length('Shimmering_Ravaging_Chaos_Helm#'))='Shimmering_Ravaging_Chaos_Helm#' AND coalesce(SpellID,0)=0 AND MaxCharges=10",
+   "reason": "Restore documented period charge from Allakhazam 10648 (ItemUnique)"
+   },
+  {
+   "sql": "UPDATE ItemTemplate SET Model=1146 WHERE Id_nb IN ('cq_hib_jagged_shield') AND Model=450",
+   "reason": "Classic cq_hib_jagged_shield uses its named equipment type (ItemTemplate)"
+   },
+  {
+   "sql": "UPDATE ItemTemplate SET Model=311 WHERE Id_nb IN ('cq_mid_sveabone_hilt_sword') AND Model=571",
+   "reason": "Classic cq_mid_sveabone_hilt_sword uses its named equipment type (ItemTemplate)"
+   },
+  {
+   "sql": "UPDATE ItemTemplate SET Model=17 WHERE Id_nb IN ('cq_alb_dash_s_long_hammer') AND Model=318",
+   "reason": "Classic cq_alb_dash_s_long_hammer uses its named equipment type (ItemTemplate)"
+   },
+  {
+   "sql": "UPDATE ItemTemplate SET Model=571 WHERE Id_nb IN ('Iarnvidiurs_Pilfered_Dagger') AND Model=6",
+   "reason": "Classic Iarnvidiurs_Pilfered_Dagger uses its named equipment type (ItemTemplate)"
+   },
+  {
+   "sql": "UPDATE ItemTemplate SET SpellID=31114 WHERE Id_nb IN ('Warshadow_Staff_of_the_Void') AND coalesce(SpellID,0)=0 AND MaxCharges=3",
+   "reason": "Period Warshadow staff charge is present but missing its spell (ItemTemplate)"
+   },
+  {
+   "sql": "UPDATE ItemTemplate SET SpellID=31115 WHERE Id_nb IN ('Warshadow_Staff_of_Mentalism') AND coalesce(SpellID,0)=0 AND MaxCharges=3",
+   "reason": "Period Warshadow staff charge is present but missing its spell (ItemTemplate)"
+   },
+  {
+   "sql": "UPDATE ItemTemplate SET SpellID=320321 WHERE Id_nb IN ('Warshadow Staff of the Enchantments', 'Shimmering_Warshadow_Staff_of_the_Enchantments') AND coalesce(SpellID,0)=0 AND MaxCharges=3",
+   "reason": "Period Warshadow staff charge is present but missing its spell (ItemTemplate)"
+   },
+  {
+   "sql": "UPDATE ItemUnique SET Model=1146 WHERE (substr(Id_nb,1,length('cq_hib_jagged_shield#'))='cq_hib_jagged_shield#') AND Model=450",
+   "reason": "Classic cq_hib_jagged_shield uses its named equipment type (ItemUnique)"
+   },
+  {
+   "sql": "UPDATE ItemUnique SET Model=311 WHERE (substr(Id_nb,1,length('cq_mid_sveabone_hilt_sword#'))='cq_mid_sveabone_hilt_sword#') AND Model=571",
+   "reason": "Classic cq_mid_sveabone_hilt_sword uses its named equipment type (ItemUnique)"
+   },
+  {
+   "sql": "UPDATE ItemUnique SET Model=17 WHERE (substr(Id_nb,1,length('cq_alb_dash_s_long_hammer#'))='cq_alb_dash_s_long_hammer#') AND Model=318",
+   "reason": "Classic cq_alb_dash_s_long_hammer uses its named equipment type (ItemUnique)"
+   },
+  {
+   "sql": "UPDATE ItemUnique SET Model=571 WHERE (substr(Id_nb,1,length('Iarnvidiurs_Pilfered_Dagger#'))='Iarnvidiurs_Pilfered_Dagger#') AND Model=6",
+   "reason": "Classic Iarnvidiurs_Pilfered_Dagger uses its named equipment type (ItemUnique)"
+   },
+  {
+   "sql": "UPDATE ItemUnique SET SpellID=31114 WHERE (substr(Id_nb,1,length('Warshadow_Staff_of_the_Void#'))='Warshadow_Staff_of_the_Void#') AND coalesce(SpellID,0)=0 AND MaxCharges=3",
+   "reason": "Period Warshadow staff charge is present but missing its spell (ItemUnique)"
+   },
+  {
+   "sql": "UPDATE ItemUnique SET SpellID=31115 WHERE (substr(Id_nb,1,length('Warshadow_Staff_of_Mentalism#'))='Warshadow_Staff_of_Mentalism#') AND coalesce(SpellID,0)=0 AND MaxCharges=3",
+   "reason": "Period Warshadow staff charge is present but missing its spell (ItemUnique)"
+   },
+  {
+   "sql": "UPDATE ItemUnique SET SpellID=320321 WHERE (substr(Id_nb,1,length('Warshadow Staff of the Enchantments#'))='Warshadow Staff of the Enchantments#' OR substr(Id_nb,1,length('Shimmering_Warshadow_Staff_of_the_Enchantments#'))='Shimmering_Warshadow_Staff_of_the_Enchantments#') AND coalesce(SpellID,0)=0 AND MaxCharges=3",
+   "reason": "Period Warshadow staff charge is present but missing its spell (ItemUnique)"
+   },
+  {
+   "sql": "UPDATE ItemTemplate SET SpellID=31233,SpellID1=0 WHERE Id_nb='2_Guthlac_Great_Shield' AND SpellID=0 AND SpellID1=31233 AND MaxCharges=10 AND MaxCharges1=0",
+   "reason": "Guthlac shield activates its existing ten charges"
+   },
+  {
+   "sql": "UPDATE ItemUnique SET SpellID=31233,SpellID1=0 WHERE substr(Id_nb,1,length('2_Guthlac_Great_Shield#'))='2_Guthlac_Great_Shield#' AND SpellID=0 AND SpellID1=31233 AND MaxCharges=10 AND MaxCharges1=0",
+   "reason": "Guthlac shield fixes existing copies without refilling charges"
+   },
+  {
+   "sql": "UPDATE ItemTemplate SET Model=1026 WHERE Id_nb IN ('2_Tuscars_War_Hammer','Tuscars_War_Hammer') AND Model=1018 AND Object_Type=12",
+   "reason": "Tuscar war hammer uses the original client one-handed troll hammer mesh"
+   },
+  {
+   "sql": "UPDATE ItemUnique SET Model=1026 WHERE (substr(Id_nb,1,length('2_Tuscars_War_Hammer#'))='2_Tuscars_War_Hammer#' OR substr(Id_nb,1,length('Tuscars_War_Hammer#'))='Tuscars_War_Hammer#') AND Model=1018 AND Object_Type=12",
+   "reason": "Tuscar war hammer updates previously dropped copies"
+   },
+  {
+   "sql": "UPDATE ItemTemplate SET SpellID=311340,Charges=10,MaxCharges=10,Bonus=30 WHERE Id_nb='Shimmering_Mushroom_Cap' AND Object_Type=33 AND SpellID=0",
+   "reason": "Droom leather Mushroom Cap matches the September 2003 item record 6034"
+   },
+  {
    "sql": "WITH fixes(id, model, old_color, new_color) AS (VALUES ('black_enamel2', 495, 0, 74), ('blue_enamel2', 495, 0, 52), ('rust_enamel2', 495, 0, 49), ('rust_enamel3', 495, 0, 49), ('green_cloth_dye2', 229, 59, 69)) UPDATE ItemTemplate SET Color = (SELECT new_color FROM fixes WHERE (Id_nb = fixes.id AND Model = fixes.model AND Item_Type = 40) AND ItemTemplate.Color = fixes.old_color) WHERE EXISTS (SELECT 1 FROM fixes WHERE (Id_nb = fixes.id AND Model = fixes.model AND Item_Type = 40) AND ItemTemplate.Color = fixes.old_color)",
    "reason": "Issue #22 dye colors: ItemTemplate"
   },
@@ -38274,10 +38366,6 @@
    "reason": "True 1.65 Prima item: Banded Coral Coif (2002 guide and late-2003 period page agree)"
   },
   {
-   "sql": "UPDATE ItemTemplate SET Level = 43, Quality = 89 WHERE Id_nb = 'bandedcoralcoif'",
-   "reason": "True 1.65 Prima item: Banded Coral Coif (2002 guide and late-2003 period page agree)"
-  },
-  {
    "sql": "UPDATE ItemTemplate SET Bonus = 25 WHERE Id_nb = 'Shimmering_Coif_of_the_Stoneharvest'",
    "reason": "True 1.65 Prima item: Coif of the Stoneharvest (2002 guide and late-2003 period page agree)"
   },
@@ -38608,10 +38696,6 @@
   {
    "sql": "UPDATE ItemTemplate SET Level = 24, DPS_AF = 48, Bonus1Type = 4, Bonus1 = 6, Bonus2Type = 2, Bonus2 = 7 WHERE Id_nb = 'Earth_Crafted_Molded_Sleeves'",
    "reason": "True 1.65 Prima item: Earth Crafted Molded Sleeves (2002 guide and late-2003 period page agree)"
-  },
-  {
-   "sql": "UPDATE ItemTemplate SET Bonus = 20 WHERE Id_nb = 'Ghostly Truesilver Sleeves'",
-   "reason": "True 1.65 Prima item: Ghostly Truesilver Sleeves (2002 guide and late-2003 period page agree)"
   },
   {
    "sql": "UPDATE ItemTemplate SET Quality = 89, Bonus1Type = 1, Bonus1 = 10, Bonus2Type = 10, Bonus2 = 12, Bonus3Type = 4, Bonus3 = 4 WHERE Id_nb = 'Imbued_Unseelie_Sleeves'",
@@ -39038,10 +39122,6 @@
    "reason": "True 1.65 Prima item: Tomte Leather Sleeves (2002 guide and late-2003 period page agree)"
   },
   {
-   "sql": "UPDATE ItemTemplate SET Quality = 80 WHERE Id_nb = 'Tomte_Leather_Sleeves'",
-   "reason": "True 1.65 Prima item: Tomte Leather Sleeves (2002 guide and late-2003 period page agree)"
-  },
-  {
    "sql": "UPDATE ItemTemplate SET Quality = 89, Bonus2Type = 1, Bonus2 = 4 WHERE Id_nb = 'Bright_Mephitic_Leather_Sleeves'",
    "reason": "True 1.65 Prima item: Mephitic Leather Sleeves (2002 guide and late-2003 period page agree)"
   },
@@ -39124,10 +39204,6 @@
   {
    "sql": "UPDATE ItemTemplate SET Bonus = 25 WHERE Id_nb = '2_SWS_Leggings'",
    "reason": "True 1.65 Prima item: Webbed Shadow Leggings (2002 guide and late-2003 period page agree)"
-  },
-  {
-   "sql": "UPDATE ItemTemplate SET Quality = 80 WHERE Id_nb = 'Tomte_Leather_Boots'",
-   "reason": "True 1.65 Prima item: Tomte Leather Boots (2002 guide and late-2003 period page agree)"
   },
   {
    "sql": "UPDATE ItemTemplate SET Quality = 80 WHERE Id_nb = 'Tomte_Leather_Boots'",
@@ -52668,14 +52744,6 @@
   {
    "sql": "UPDATE ItemTemplate SET Color = CASE Id_nb WHEN 'HS_AdribardsRetreat_CastleSauvage' THEN 311 WHEN 'HS_AdribardsRetreat_WestDowns' THEN 311 WHEN 'HS_CaerWitrin_WesternCornwall' THEN 311 WHEN 'HS_GronyrsFarm_CampacorentinStation' THEN 311 WHEN 'HS_Bjarken_Knarr' THEN 312 WHEN 'HS_FortAtla_Galplen' THEN 312 WHEN 'HS_FortAtla_Mularn' THEN 312 WHEN 'HR_Ardagh_Connla' THEN 313 WHEN 'HR_Ardagh_TirUrphost' THEN 313 WHEN 'HR_Ardee_TirUrphost' THEN 313 END WHERE Item_Type = 40 AND Color = 0 AND Id_nb IN ('HS_AdribardsRetreat_CastleSauvage', 'HS_AdribardsRetreat_WestDowns', 'HS_CaerWitrin_WesternCornwall', 'HS_GronyrsFarm_CampacorentinStation', 'HS_Bjarken_Knarr', 'HS_FortAtla_Galplen', 'HS_FortAtla_Mularn', 'HR_Ardagh_Connla', 'HR_Ardagh_TirUrphost', 'HR_Ardee_TirUrphost')",
    "reason": "True 1.65 stable tickets: use the realm horse for verified later-model stable fallbacks"
-  },
-  {
-   "sql": "UPDATE DataQuest SET TargetName = replace(TargetName, '|Master Gerol;1|', '|Master Ferowl;1|') WHERE ID IN (20416,20417,20418) AND Name = 'La Morti Parla'",
-   "reason": "Issue 10: La Morti Parla step 5 uses Master Ferowl in Cotswold (Allakhazam quest 209), matching the journal"
-  },
-  {
-   "sql": "UPDATE DataQuest SET MaxLevel = 50 WHERE ID IN (20228,20229,20230,20231,20251,20252,20253,20254,21021,21022) AND MaxLevel < 50",
-   "reason": "Epic access: required Connla's Well, Strange Matters Indeed and Darksong's Dirge remain available through level 50 as a quality-of-life exception"
   },
   {
    "sql": "UPDATE ItemTemplate SET Realm=1, Object_Type=3, Type_Damage=2 WHERE Id_nb='Exquisite_Avernal_Malison_Short_Sword' AND Realm=0 AND Object_Type=11 AND Type_Damage=0 AND Item_Type=10 AND Hand=0",

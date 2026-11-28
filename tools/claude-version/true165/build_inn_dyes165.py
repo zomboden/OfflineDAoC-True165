@@ -89,23 +89,53 @@ def route(db, layout, zone, region, source, npcs, patrols):
     raise ValueError(f"No clear route near {source['Name']}")
 
 
+def merchant_stock(db, prefix, realm):
+    # Use the existing vendor catalog plus the realm's craftable colors.
+    # Keep one entry per material/color and prefer the existing vendor SKU.
+    colors = {}
+    for row in db.execute("""
+        SELECT i.Model, i.Color, i.Id_nb
+        FROM MerchantItem m JOIN ItemTemplate i ON i.Id_nb=m.ItemTemplateID COLLATE NOCASE
+        WHERE m.ItemListID='ClothLeatherEnamelDye2' AND i.Item_Type=40 AND i.Color>0
+        ORDER BY m.PageNumber,m.SlotPosition
+    """):
+        realm_item = db.execute("""
+            SELECT Id_nb FROM ItemTemplate
+            WHERE Model=? AND Color=? AND Item_Type=40 AND Realm=?
+              AND Name=(SELECT Name FROM ItemTemplate WHERE Id_nb=?) COLLATE NOCASE
+            ORDER BY Id_nb LIMIT 1
+        """, (row["Model"], row["Color"], realm, row["Id_nb"])).fetchone()
+        colors.setdefault((row["Model"], row["Color"]), realm_item["Id_nb"] if realm_item else row["Id_nb"])
+
+    for row in db.execute("""
+        SELECT i.Model,i.Color,i.Id_nb FROM ItemTemplate i
+        WHERE i.Realm=? AND i.Item_Type=40 AND i.Model IN (229,494,495) AND i.Color>0
+          AND EXISTS (SELECT 1 FROM CraftedItem c WHERE c.Id_nb=i.Id_nb AND c.CraftingSkillType=4)
+        ORDER BY i.Id_nb
+    """, (realm,)):
+        colors.setdefault((row["Model"], row["Color"]), row["Id_nb"])
+
+    stock = []
+    for model, remover in ((229, "cloth_bleach"), (494, "mild_acid_wash"), (495, "mild_acid_enamel_remover")):
+        stock.extend(item for (kind, _), item in colors.items() if kind == model)
+        stock.append(remover)
+    assert len(stock) <= 150 and all(db.execute(
+        "SELECT Realm FROM ItemTemplate WHERE Id_nb=?", (item,)).fetchone()["Realm"] in (0, realm)
+        for item in stock)
+    return [dict(MerchantItem_ID=f"{prefix}-{index // 30}-{index % 30}",
+                 ItemListID=prefix, ItemTemplateID=item, PageNumber=index // 30,
+                 SlotPosition=index % 30, LastTimeRowUpdated=NOW)
+            for index, item in enumerate(stock)]
+
+
 def build(output):
     sys.path.insert(0,str(ROOT / "development-source/server/tools/navmesh_splice"))
     db = sqlite3.connect((ROOT / "runtime/data/opendaoc-165.sqlite3.db").as_uri()+"?mode=ro",uri=True)
     db.row_factory = sqlite3.Row
     npcs = read(ROOT/"runtime/true165/add-inns165.json")["rows"]
     patrols = read(ROOT/"runtime/true165/add-pathpoints165.json")["rows"]
-    base = db.execute("""SELECT i.* FROM MerchantItem m JOIN ItemTemplate i
-                        ON lower(i.Id_nb)=lower(m.ItemTemplateID)
-                        WHERE m.ItemListID='ClothLeatherEnamelDye2' AND i.Item_Type=40
-                        ORDER BY m.PageNumber,m.SlotPosition""").fetchall()
-    stock = [i for i in base if i["Name"].lower().endswith(("cloth dye","leather dye","enamel"))]
-    assert len(stock)==98
-    groups = [[i for i in stock if i["Name"].lower().endswith(kind)] for kind in ("cloth dye","leather dye","enamel")]
-    pages = [groups[0], groups[1][:30], groups[1][30:], groups[2][:30], groups[2][30:]]
     tables = {t:(key,[]) for t,key in (("Mob","Mob_ID"),("Path","Path_ID"),("PathPoints","PathPoints_ID"),
                                        ("NPCEquipment","NPCEquipment_ID"),("MerchantItem","MerchantItem_ID"))}
-    specs = ["Item_Type","Model","Color","Price","Object_Type","PackSize","MaxCount"]
     for code,realm,region,zone,name,model,anchor,outfit in CONFIG:
         vendor_id = str(uuid.uuid5(NS,f"{code}/dye_trader"))
         assert not db.execute("SELECT 1 FROM Mob WHERE Name=? COLLATE NOCASE AND Mob_ID<>?",(name,vendor_id)).fetchone()
@@ -126,13 +156,7 @@ def build(output):
             tables["PathPoints"][1].append(dict(PathPoints_ID=f"{prefix}-{step}",PathID=prefix,Step=step,X=x,Y=y,Z=z,MaxSpeed=70,WaitTime=45,LastTimeRowUpdated=NOW))
         for slot,item,color in outfit:
             tables["NPCEquipment"][1].append(dict(NPCEquipment_ID=f"{prefix}-{slot}",TemplateID=prefix,Slot=slot,Model=item,Color=color,Effect=0,Extension=0,Emblem=0,LastTimeRowUpdated=NOW))
-        for page,slot,base_item in ((page,slot,item) for page,items in enumerate(pages) for slot,item in enumerate(items)):
-            matches = db.execute("SELECT * FROM ItemTemplate WHERE Name=? COLLATE NOCASE AND Realm=? AND Item_Type=40 ORDER BY Id_nb",
-                                 (base_item["Name"],realm))
-            item = next((row for row in matches if all(row[k]==base_item[k] for k in specs)),base_item)
-            assert item["Realm"] in (0,realm) and item["Color"]>0
-            tables["MerchantItem"][1].append(dict(MerchantItem_ID=f"{prefix}-{page}-{slot}",ItemListID=prefix,
-                                                    ItemTemplateID=item["Id_nb"],PageNumber=page,SlotPosition=slot,LastTimeRowUpdated=NOW))
+        tables["MerchantItem"][1].extend(merchant_stock(db, prefix, realm))
     db.close()
     output.mkdir(parents=True,exist_ok=True)
     for table,(key,rows) in tables.items():

@@ -35,7 +35,8 @@ namespace DOL.AI.Brain
             // distinct monster; merely seeing a neutral mob cannot start a pull.
             HashSet<GameLiving> selectedTargets = board.SelectedTargets;
             HashSet<GameLiving> activeTargets = board.ActiveTargets;
-            if (activeTargets.Count == 0)
+            bool batteringDoor = activeTargets.Count == 0 && IsBatteringKeepDoor(board);
+            if (activeTargets.Count == 0 && !batteringDoor)
                 return false;
 
             long now = GameLoop.GameLoopTime;
@@ -62,7 +63,7 @@ namespace DOL.AI.Brain
             List<GameNPC> safeAdds = new();
             foreach (GameNPC add in board.NpcsOnGroup
                          .Where(npc => bard.IsWithinRadius(npc, 1800))
-                         .Where(npc => npc?.IsAlive == true && npc.Realm == eRealm.None &&
+                         .Where(npc => npc?.IsAlive == true && IsAddControlRealm(npc) &&
                              !BotPvpCrowdControl.PlayerLike(npc) && CanDefendAgainst(npc))
                          .OrderBy(bard.GetDistanceTo).Take(24))
             {
@@ -72,7 +73,7 @@ namespace DOL.AI.Brain
                     add.effectListComponent.ContainsEffectForEffectType(eEffect.NPCMezImmunity);
                 long retryUntil = _bardPveMezRetryUntil.GetValueOrDefault(add);
                 if (BardBotCrowdControlPolicy.IsSafePveAdd(true,
-                        activeTargets.Any(target => target != add), attacksMember,
+                        activeTargets.Any(target => target != add) || SiegeGuardAdd(add, batteringDoor), attacksMember,
                         selectedTargets.Contains(add), Body.TargetObject == add,
                         add.HealthPercent, alreadyControlled, now, retryUntil) &&
                     IsUntouchedAdd(add, petTargets))

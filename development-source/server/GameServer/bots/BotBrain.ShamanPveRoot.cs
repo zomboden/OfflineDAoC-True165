@@ -47,7 +47,8 @@ namespace DOL.AI.Brain
                 return false;
             HashSet<GameLiving> selectedTargets = board.SelectedTargets;
             HashSet<GameLiving> activeTargets = board.ActiveTargets;
-            if (activeTargets.Count == 0)
+            bool batteringDoor = activeTargets.Count == 0 && IsBatteringKeepDoor(board);
+            if (activeTargets.Count == 0 && !batteringDoor)
                 return false;
 
             foreach (GameLiving expired in _shamanPveRootRetryUntil
@@ -58,7 +59,7 @@ namespace DOL.AI.Brain
             HashSet<GameLiving> petTargets = board.PetTargets;
             foreach (GameNPC add in board.NpcsOnGroup
                          .Where(npc => shaman.IsWithinRadius(npc, 1800))
-                         .Where(npc => npc?.IsAlive == true && npc.Realm == eRealm.None &&
+                         .Where(npc => npc?.IsAlive == true && IsAddControlRealm(npc) &&
                              !BotPvpCrowdControl.PlayerLike(npc) && CanDefendAgainst(npc))
                          .OrderBy(shaman.GetDistanceTo).Take(24))
             {
@@ -68,7 +69,7 @@ namespace DOL.AI.Brain
                     add.effectListComponent.ContainsEffectForEffectType(eEffect.SnareImmunity);
                 long retryUntil = _shamanPveRootRetryUntil.GetValueOrDefault(add);
                 bool safeAdd = BardBotCrowdControlPolicy.IsSafePveAdd(true,
-                    activeTargets.Any(target => target != add), attacksMember,
+                    activeTargets.Any(target => target != add) || SiegeGuardAdd(add, batteringDoor), attacksMember,
                     selectedTargets.Contains(add), Body.TargetObject == add,
                     add.HealthPercent, alreadyControlled, now, retryUntil) && IsUntouchedAdd(add, petTargets);
                 if (!ShamanBotCombatPolicy.IsRootableAdd(safeAdd, victim == null ? 0 : add.GetDistanceTo(victim)))

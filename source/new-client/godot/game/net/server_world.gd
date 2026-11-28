@@ -7,6 +7,7 @@ extends NpcManager
 ## its updates a mover keeps walking toward where the server said it is going (the client's own dead reckoning).
 ## Also the server's chat lines, your health / power / endurance, swings, casts, emotes and deaths.
 
+const ArcheryVisual := preload("res://game/combat/archery_visual.gd")
 const StealthLook := preload("res://game/stealth_look.gd")   # the dark green ghost of a hidden figure
 const RUN_UNITS := 150.0                     # a mover faster than this (units / s) runs, slower walks
 const SNAP_M := 6.0                          # an update this far from where it is drawn: jump there
@@ -1504,6 +1505,8 @@ func _combat(d: Dictionary) -> void:
 				(a as Player).bow_draw()
 		if not shoot:
 			return                                     # (no target, nothing hit yet)
+		if WeaponModels.stance(int(d.weapon)) in ["bow", "xbow"]:
+			ArcheryVisual.launch(a as Node3D, _view_of(int(d.defender)) as Node3D, int(d.stance))
 	# a dual wielder's blow (WeaponAction: OneDualWeaponHit - the left weapon -, BothDualWeaponHit): canims Att Left /
 	# Att Dual (owner 2026-10-15: "all clips need to be proper ... so nothing is incorrect or using the wrong clip")
 	var hand: String = {ONE_DUAL: "left", BOTH_DUAL: "dual"}.get(int(d.style), "")
@@ -1549,6 +1552,8 @@ func _combat(d: Dictionary) -> void:
 	var v := _view_of(int(d.defender))
 	var result := int(d.result)
 	var kind: String = {1: "parry", 2: "block", 3: "evade"}.get(result, "")
+	if not spell and not bow_anim and result in [10, 11] and WeaponModels.stance(int(d.weapon)) in ["bow", "xbow"]:
+		ArcheryVisual.embed(a as Node3D, v as Node3D)
 	_combat_sounds(a, v, d, styled)
 	if v is Npc:
 		if kind != "":
@@ -1762,10 +1767,25 @@ func _revive_sickness(d: Dictionary, now: int) -> bool:
 	return int(d.caster) == Server.me_oid and int(d.target) == Server.me_oid and now - _revived_at < REVIVE_QUIET_MS
 
 
+# The Mundane Poisons effects in the True 1.65 database. 873 and 2643 are also shared by cast spells,
+# so those two use the normal path while a matching cast start is pending.
+static func weapon_poison_impact(effect_id: int, timed_cast: bool, instant_cast: bool) -> bool:
+	return (effect_id >= 4080 and effect_id <= 4099) or effect_id in [5710, 8096, 8097, 8100, 8101, 26000] or (
+		effect_id in [873, 2643] and not timed_cast and not instant_cast)
+
+
 func _spell_effect(d: Dictionary) -> void:
 	var caster := _view_of(int(d.caster)) as Node3D
 	var target := _view_of(int(d.target)) as Node3D
 	var ce := int(d.spell)
+	var start: Array = _gathers.get(int(d.caster), [])
+	var instant_start: Array = _instant.get(int(d.caster), [])
+	if weapon_poison_impact(ce, not start.is_empty() and int(start[0]) == ce,
+			instant_start.size() == 2 and int(instant_start[0]) == ce and Time.get_ticks_msec() - int(instant_start[1]) < 3000):
+		if target:
+			var snd := _sounds_of(target) if int(d.get("no_sound", 0)) == 0 else null
+			SpellFx.land(ce, target, float(target.get("height")) if target is Npc else 1.8, snd, int(d.success) == 0)
+		return
 	_slog("LAND  %s -> %s  %d %s  cast=%s  target view=%s  %s" % [_who(int(d.caster)), _who(int(d.target)), ce,
 			String(SpellFx.effect(ce).get("name", "")), "yes" if _gathers.has(int(d.caster)) else "no",
 			"yes" if target else "NOT YET", "resisted" if int(d.success) == 0 else "ok"])

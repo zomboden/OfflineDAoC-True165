@@ -9,6 +9,7 @@ using DOL.Database;
 using DOL.Events;
 using DOL.GS;
 using DOL.GS.Effects;
+using DOL.GS.Keeps;
 using DOL.GS.PacketHandler;
 using DOL.GS.RealmAbilities;
 using DOL.GS.SkillHandler;
@@ -1678,6 +1679,7 @@ namespace DOL.AI.Brain
                 return;
 
             AutonomousBotRealmAbilities.UseActives(BotBody);
+            BotPotions165.TryCompanionDrink(BotBody);
 
             // Once a stable ticket has boarded, its waypoint chain exclusively
             // owns movement until the final point. No ordinary bot subsystem is
@@ -5464,6 +5466,13 @@ namespace DOL.AI.Brain
             int savePower = bot.IsPlayerCompanion ? CompanionOptions165.Choice(bot, "savepower") : 0;
             if (savePower == CompanionSpellOptions165.SavePowerNoFinish)
                 return true;
+            if (Body.TargetObject is GameKeepDoor { IsAlive: true } && bot.IsPlayerCompanion)
+            {
+                bool healerAttacking = RoleChoice == 2 && bot.CharacterClass != null &&
+                    CompanionSpellOptions165.UsesHealerRoleRow((eCharacterClass)bot.CharacterClass.ID);
+                return savePower == CompanionSpellOptions165.SavePowerStrict ||
+                    Body.Group != null && BotCasterPriority.CompanionSavesPower(savePower, healerAttacking);
+            }
             if (Body.TargetObject is not GameNPC target || target is GameBot || !target.IsAlive)
                 return false;
             // The original explicit mode keeps its PvE finishing exception.
@@ -7169,13 +7178,16 @@ namespace DOL.AI.Brain
         /// and a group heal going in every fight; Shaman group regeneration).
         /// </summary>
         /// <param name="burst">False: only a group heal-over-time (True 1.65: two hurt, or the fight has just begun).</param>
-        private Spell GroupHealChoice(GameLiving patient, bool burst = true)
+        private Spell GroupHealChoice(GameLiving patient, bool burst, bool preferSpread, bool immediate = false)
         {
-            foreach (Spell regen in new[] { BotBody.HealOverTimeInstantGroup, BotBody.HealOverTimeGroup })
-                if (CheckHealSpell(regen) && patient != null && !HotRunningOrComing(patient, regen))
-                    return regen;
+            if (!immediate)
+                foreach (Spell regen in new[] { BotBody.HealOverTimeInstantGroup, BotBody.HealOverTimeGroup })
+                    if (CheckHealSpell(regen) && patient != null && !HotRunningOrComing(patient, regen))
+                        return regen;
             if (!burst)
                 return null;
+            if (preferSpread && CheckHealSpell(BotBody.HealSpread))
+                return BotBody.HealSpread;
             if (CheckHealSpell(BotBody.HealGroup))
                 return BotBody.HealGroup;
             if (CheckHealSpell(BotBody.HealSpread))
@@ -7291,6 +7303,8 @@ namespace DOL.AI.Brain
             GameLiving spellTarget = null;
             bool startedCasting = false;
             int numGroupHurt = 0;   // members under the heal line by their real health (a group heal's count)
+            int numGroupBadlyHurt = 0;
+            int groupHealChoice = classic165 ? CompanionOptions165.Choice(BotBody, CompanionOptions165.GroupHealingKey) : 0;
             bool groupInFight = false;
 
             // Check group health
@@ -7311,7 +7325,11 @@ namespace DOL.AI.Brain
                         bool tank = classic165 && BotHealTriage165.IsTank(member);
                         int triage = BotHealTriage165.TriageHealth(member.HealthPercent, tank);
                         if (member.HealthPercent < needAt)
+                        {
                             numGroupHurt++;
+                            if (member.HealthPercent < 50)
+                                numGroupBadlyHurt++;
+                        }
 
                         if (triage < needAt)
                         {
@@ -7490,8 +7508,12 @@ namespace DOL.AI.Brain
                     spellToCast = BotBody.HealInstantGroup;
                 else if (!isCastingHeal)
                 {
+                    // Two critical targets can justify a cast spread immediately if the healer is free to cast.
+                    if (classic165 && BotBody.IsPlayerCompanion && numEmergency >= 2 && groupHealChoice != 3 &&
+                        GroupHealChoice(spellTarget, true, groupHealChoice != 2, immediate: true) is { } emergencyGroup)
+                        spellToCast = emergencyGroup;
                     // Being hit, no instant heal left: Quick Cast carries the emergency heal (player practice).
-                    if (CheckHealSpell(BotBody.HealBig) || quickHealReady && BotBody.QuickCastReady(BotBody.HealBig))
+                    else if (CheckHealSpell(BotBody.HealBig) || quickHealReady && BotBody.QuickCastReady(BotBody.HealBig))
                         spellToCast = BotBody.HealBig;
                     else if (CheckHealSpell(BotBody.HealEfficient) || quickHealReady && BotBody.QuickCastReady(BotBody.HealEfficient))
                         spellToCast = BotBody.HealEfficient;
@@ -7592,10 +7614,14 @@ namespace DOL.AI.Brain
             {
                 if (!BotBody.IsCasting || (numEmergency > 0 && !isCastingHeal))
                 {
-                    // True 1.65: a group heal only for three or more hurt, not on the pull (group heal-over-time still on two)
-                    bool burstGroupHeal = !classic165 || BotHealTriage165.GroupHealWorthwhile(numGroupHurt, groupInFight,
-                        _healFightSince == 0 ? 0 : GameLoop.GameLoopTime - _healFightSince);
-                    if (Body.Group != null && numNeedHealing >= 2 && GroupHealChoice(spellTarget, burstGroupHeal) is Spell groupHeal)
+                    long fightTime = _healFightSince == 0 ? 0 : GameLoop.GameLoopTime - _healFightSince;
+                    bool preferSpread = BotBody.IsPlayerCompanion && classic165 &&
+                        (groupHealChoice == 1 || groupHealChoice == 0 && numGroupBadlyHurt >= 2 && numGroupHurt < 4);
+                    bool burstGroupHeal = !classic165 || BotHealTriage165.GroupHealWorthwhile(numGroupHurt, groupInFight, fightTime) ||
+                        preferSpread && BotBody.HealSpread != null && numGroupBadlyHurt >= 2 &&
+                        (!groupInFight || fightTime >= BotHealTriage165.GroupHealFightMilliseconds);
+                    if (groupHealChoice != 3 && Body.Group != null && numNeedHealing >= 2 &&
+                        GroupHealChoice(spellTarget, burstGroupHeal, preferSpread) is Spell groupHeal)
                         spellToCast = groupHeal;
                     else if (CheckHealSpell(BotBody.HealOverTime) && !HotRunningOrComing(spellTarget, BotBody.HealOverTime))
                         spellToCast = BotBody.HealOverTime;
@@ -7609,7 +7635,7 @@ namespace DOL.AI.Brain
                         spellToCast = BotBody.HealEfficient;
                     else if (classic165 && CheckHealSpell(BotBody.HealBig))
                         spellToCast = BotBody.HealBig;
-                    else if (CheckHealSpell(BotBody.HealGroup))
+                    else if (groupHealChoice != 3 && CheckHealSpell(BotBody.HealGroup))
                         spellToCast = BotBody.HealGroup;
                 }
             }

@@ -211,6 +211,7 @@ static func make(model: int, drawn := false, left := false, sheath := "") -> Nod
 		return null
 	var holder := Node3D.new()
 	holder.name = "Weapon_%d" % model
+	holder.set_meta("weapon_model", model)
 	var w := p.instantiate() as Node3D
 	CacheTrim.track("weapon", path, w)
 	for c in w.find_children("collision*", "", true, false):
@@ -263,6 +264,43 @@ static func set_emblem(holder: Node3D, model: int, emblem: int) -> void:
 ## the period glows, flames, frost) on a holder from make(): drawn in the weapon's own frame, looping. Null when the
 ## number has none (owner 2026-10-13: the abomination's two-hander, effect 30, glows red).
 static var _effects := {}
+static var _spell_anchors := {}
+
+
+static func effect_frame(model: int, weapon_frame: Transform3D) -> Transform3D:
+	if _spell_anchors.is_empty():
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(DIR + "/weapon_spell_anchors.json"))
+		_spell_anchors = parsed if parsed is Dictionary else {"_": []}
+	var a: Array = _spell_anchors.get(str(model), [])
+	if a.size() != 12:
+		return weapon_frame
+	var socket := Transform3D(Basis(Vector3(a[0], a[1], a[2]), Vector3(a[3], a[4], a[5]),
+			Vector3(a[6], a[7], a[8])), Vector3(a[9], a[10], a[11]))
+	return weapon_frame * TO_NIF.affine_inverse() * socket * TO_NIF
+
+
+static func setup_glow(holder: Node3D, effect: int, drawn: bool) -> void:
+	if effect <= 0:
+		return
+	holder.set_meta("glow_id", effect)
+	holder.set_meta("glow_drawn", drawn)
+	if drawn:
+		add_effect(holder, effect)
+
+
+static func cast_glow(gear: Array, lit: bool) -> void:
+	for mount in gear:
+		if not is_instance_valid(mount) or mount.get_child_count() == 0:
+			continue
+		var weapon := mount.get_child(0) as Node3D
+		if not weapon or not weapon.has_meta("glow_id") or bool(weapon.get_meta("glow_drawn", false)):
+			continue
+		var fx := weapon.get_node_or_null("WeaponEffect") as Node3D
+		if lit and fx == null:
+			add_effect(weapon, int(weapon.get_meta("glow_id")))
+		elif not lit and fx != null:
+			weapon.remove_child(fx)
+			fx.queue_free()
 
 
 static func add_effect(holder: Node3D, effect: int) -> Node3D:
@@ -275,7 +313,7 @@ static func add_effect(holder: Node3D, effect: int) -> Node3D:
 	if fx == null:
 		return null
 	fx.name = "WeaponEffect"
-	fx.transform = (holder.get_child(0) as Node3D).transform   # the weapon's own frame (TO_NIF / its grip)
+	fx.transform = effect_frame(int(holder.get_meta("weapon_model", 0)), (holder.get_child(0) as Node3D).transform)
 	# the glow rides the blade: its particles live in the weapon's space (owner 2026-10-20: an abomination's and the
 	# gamebots' weapon glows trailed far behind the sword - emitted in world space, each particle stayed where it was
 	# born for its whole life while the blade swung on)

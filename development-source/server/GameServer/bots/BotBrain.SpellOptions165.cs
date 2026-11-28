@@ -1,4 +1,5 @@
 using DOL.GS;
+using DOL.GS.Keeps;
 
 namespace DOL.AI.Brain
 {
@@ -24,6 +25,8 @@ namespace DOL.AI.Brain
             else if (CompanionOptions165.Choice(bot, "attackspells") is int attack and > 0 &&
                      CompanionSpellOptions165.AttackChoiceBlocks(attack, spell))
                 reason = attack == CompanionSpellOptions165.AttackNone ? "attack-none" : "attack-area-only";
+            else if (Body.TargetObject is GameKeepDoor && BotCasterPriority.IsDamage(spell) && SavePowerForGroup())
+                reason = "savepower-keep-door";
             else if (BotCasterPriority.IsDamage(spell) &&
                      (CompanionOptions165.Choice(bot, "savepower") is CompanionSpellOptions165.SavePowerStrict or
                          CompanionSpellOptions165.SavePowerNoFinish) &&

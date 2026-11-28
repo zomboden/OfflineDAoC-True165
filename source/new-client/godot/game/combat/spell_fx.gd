@@ -189,6 +189,8 @@ static func size_of(on: Node3D) -> float:
 	if not (m is Node3D):
 		return 1.0
 	var model := m as Node3D
+	if model.has_meta("period_fx_scale"):
+		return float(model.get_meta("period_fx_scale"))
 	if model is Fig3Figure:
 		return absf(model.scale.y)
 	var info = on.get("info")
@@ -311,6 +313,7 @@ static func _play(fx_id: int, on: Node3D, height := 1.8, keep := false, target: 
 	var skel := _skeleton(on)
 	var bi := _bone_or_parent(skel, bone) if skel and bone.begins_with("Bip01") else -1
 	var fx := node
+	var effect_scale := size_of(on) if bool(f.get("autoscale", false)) else 1.0
 	if bi >= 0:
 		var at := BoneAttachment3D.new()
 		at.bone_name = skel.get_bone_name(bi)
@@ -318,12 +321,10 @@ static func _play(fx_id: int, on: Node3D, height := 1.8, keep := false, target: 
 		at.add_child(node)
 		node = at
 		# the bone's world scale (the model's) cancelled, then the effect's own size: the character's for Auto Scale
-		var want := size_of(on) if bool(f.get("autoscale", false)) else 1.0
-		fx.scale = Vector3.ONE * want / maxf(at.global_basis.get_scale().x, 0.001)
+		fx.scale = Vector3.ONE * effect_scale / maxf(at.global_basis.get_scale().x, 0.001)
 	else:
 		on.add_child(node)
-		var k := size_of(on) if bool(f.get("autoscale", false)) else 1.0
-		fx.scale = Vector3.ONE * k / maxf(on.scale.y, 0.001)
+		fx.scale = Vector3.ONE * effect_scale / maxf(on.scale.y, 0.001)
 		if bone.to_lower().contains("chest"):
 			node.position.y = height * 0.6 / maxf(on.scale.y, 0.001)
 		elif bone.to_lower().contains("head"):

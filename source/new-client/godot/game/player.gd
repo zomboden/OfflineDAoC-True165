@@ -444,6 +444,8 @@ func morph(info: Dictionary) -> void:
 	_unmorphed = {"model": _model, "anim": _anim, "strides": _strides, "clip_len": _clip_len}
 	_model.visible = false                                 # your figure and the gear on its bones
 	m.scale *= float(info.get("scale", 1.0))
+	if String(info.get("figure", "")) in ["vendo_man", "stag_man"]:
+		m.set_meta("period_fx_scale", float(info.get("scale", 1.0)))
 	m.position.y += Npc.figure_look(m, info, get_instance_id())   # skin alpha + hover (the shade floats, see-through)
 	add_child(m)
 	m.visible = not first_person
@@ -629,10 +631,13 @@ var _cast_clips := ["cast_start", "cast_mid", "cast_end"]
 ## running off while casting, left the casting pose stuck - the server dropped the cast without a word).
 const CAST_GRACE := 2.0
 var _cast_left := INF
+var _cast_weapon_glow := false
 
 
 func cast_start(clips: Array = [], seconds := -1.0) -> void:
 	casting_spell = true
+	_cast_weapon_glow = true
+	WeaponModels.cast_glow(_gear, true)
 	_cast_left = seconds if seconds >= 0.0 else INF
 	_cast_clips = [String(_morph_casts.get("cast_start", "cast_start")), String(_morph_casts.get("cast_mid", "cast_mid")),
 			String(_morph_casts.get("cast_end", "cast_end"))]
@@ -649,6 +654,8 @@ func cast_end(landed := false) -> void:
 		_one_shot(_cast_clips[2])
 	else:
 		_action_left = 0.0
+		_cast_weapon_glow = false
+		WeaponModels.cast_glow(_gear, false)
 
 
 var casting_spell := false
@@ -673,6 +680,7 @@ func sit(on: bool) -> void:
 
 
 func die() -> void:
+	_cast_weapon_glow = false
 	dead = true
 	sitting = false
 	in_combat = false
@@ -700,13 +708,16 @@ func refresh_gear() -> void:
 	_gear.clear()
 	_gear = dress(_model, PlayerData.item_at, PlayerData.active_weapon, in_combat, true,
 			PlayerData.character.get("gear", {}) if PlayerData.character.get("gear") is Dictionary else {})
+	if _cast_weapon_glow and not dead:
+		WeaponModels.cast_glow(_gear, true)
 
 
 ## A figure's worn gear, shared with the character select screen (owner 2026-10-10: the staff / armour didn't show
 ## there): armour parts on a Fig3Figure (pipeline/build_armor.py), and the active weapon set on its bones. item_at:
 ## slot -> item Dictionary ({} when empty). Returns the bone attachments made.
 ## gear: the server's look flags for this character - {"hood": bool, "cloak_hidden": bool, "helm_hidden": bool}.
-static func dress(model: Node3D, item_at: Callable, active_weapon: String, combat: bool, armor := true, gear := {}) -> Array:
+static func dress(model: Node3D, item_at: Callable, active_weapon: String, combat: bool,
+		armor := true, gear := {}, show_combat_glow := true) -> Array:
 	var made: Array = []
 	if armor and model is Fig3Figure:                               # worn armour on the figure (pipeline/build_armor.py)
 		var fig := model as Fig3Figure
@@ -771,7 +782,7 @@ static func dress(model: Node3D, item_at: Callable, active_weapon: String, comba
 			sat.bone_name = sheath
 			skel.add_child(sat)
 			sat.add_child(sw)
-			WeaponModels.add_effect(sw, int(it.get("effect", 0)))
+			WeaponModels.setup_glow(sw, int(it.get("effect", 0)), false)
 			made.append(sat)
 			continue
 		# an NPC with a shield model in its right hand too (shield merchants' NPCEquipment lists it in both hands): the
@@ -815,7 +826,7 @@ static func dress(model: Node3D, item_at: Callable, active_weapon: String, comba
 		at.bone_name = bone
 		skel.add_child(at)
 		at.add_child(w)
-		WeaponModels.add_effect(w, int(it.get("effect", 0)))   # its glow / flame (an item's weapon effect)
+		WeaponModels.setup_glow(w, int(it.get("effect", 0)), combat and show_combat_glow)
 		made.append(at)
 	return made
 
@@ -1034,6 +1045,9 @@ func hold() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if _cast_weapon_glow and not casting_spell and Vector2(velocity.x, velocity.z).length_squared() > 0.01:
+		_cast_weapon_glow = false
+		WeaponModels.cast_glow(_gear, false)
 	var t0 := Time.get_ticks_usec()
 	_physics_step(delta)
 	Perf.phys_add("player", Time.get_ticks_usec() - t0)        # (Perf's live log: the physics tick by part)

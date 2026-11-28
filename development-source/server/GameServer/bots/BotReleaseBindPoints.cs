@@ -64,6 +64,42 @@ namespace DOL.GS
             return null;
         }
 
+        private static readonly Vector3 SvasudStone = new(765147, 668315, 5736);
+        private static readonly Vector3 SvasudCourtyard = new(765706, 668538, 5736);
+        private static readonly Vector3[] SvasudLandings =
+        {
+            new(765286, 668310, 5736), new(765300, 668350, 5736), new(765300, 668420, 5736)
+        };
+
+        public static bool IsSvasudBind(ushort region, Point3D point) =>
+            region == 100 && point != null &&
+            Vector3.DistanceSquared(new(point.X, point.Y, point.Z), SvasudStone) <= 96 * 96;
+
+        public static Point3D? SvasudLanding(ushort region, Point3D release, int seed)
+        {
+            if (!IsSvasudBind(region, release))
+                return null;
+
+            Zone zone = WorldMgr.GetRegion(region)?.GetZone(release.X, release.Y);
+            IPathfindingMgr nav = PathfindingProvider.Instance;
+            if (zone == null || nav == null || !nav.IsAvailable || !nav.HasNavmesh(zone))
+                return null;
+
+            int first = (int)(unchecked((uint)seed) % SvasudLandings.Length);
+            for (int i = 0; i < SvasudLandings.Length; i++)
+            {
+                Vector3 site = SvasudLandings[(first + i) % SvasudLandings.Length];
+                Vector3? floor = nav.GetClosestPoint(zone, site, 16, 16, 48, nav.DefaultFilters);
+                if (!floor.HasValue || IsNearBindstone(region, floor.Value.X, floor.Value.Y, floor.Value.Z, 120) ||
+                    !AutonomousZoneItinerary.HasCompleteCorridor(nav, zone, floor.Value, SvasudCourtyard) ||
+                    !AutonomousZoneItinerary.HasCompleteCorridor(nav, zone, SvasudCourtyard, floor.Value))
+                    continue;
+                return new Point3D((int)System.Math.Round(floor.Value.X), (int)System.Math.Round(floor.Value.Y),
+                    (int)System.Math.Round(floor.Value.Z));
+            }
+            return null;
+        }
+
         public static void Replace(ushort region, IEnumerable<DbBindPoint> points) =>
             Regions[region] = points.Select(p => new Bind(new Point3D(p.X, p.Y, p.Z), Owner(region, (eRealm)p.Realm))).ToArray();
 

@@ -48,6 +48,8 @@ namespace DOL.GS
             // per kind: no bag look before this tick while the inventory revision is unchanged
             public readonly long[] SkipUntil = new long[4];
             public readonly int[] SkipRevision = new int[4];
+            public int CompanionBagRevision;
+            public int Drinking;
         }
 
         // bot id -> its drink timers and "no potion" marks
@@ -113,7 +115,35 @@ namespace DOL.GS
 
         private static bool Eligible(GameBot bot) =>
             Classic165Mode.IsOn && bot?.Inventory != null && bot.IsAlive && bot.DatabaseID > 0 &&
-            (HiredCompanions165.IsHired(bot) || bot.IsAutonomousWorldBot && !bot.IsTemporaryGroupHelper);
+            (HiredCompanions165.IsHired(bot) || bot.IsAutonomousWorldBot && !bot.IsTemporaryGroupHelper) &&
+            CompanionOptions165.Choice(bot, CompanionOptions165.PotionsKey) != 2;
+
+        public static void InventoryChanged(GameBot bot)
+        {
+            if (NextDrink.TryGetValue(bot.DatabaseID, out DrinkState state))
+                Interlocked.Increment(ref state.CompanionBagRevision);
+        }
+
+        // A companion can use an emergency draught while the fight is ongoing, even if a groupmate gets the kill.
+        // Recovering with consumables between fights is an owner choice; standing regen and MCL get first use.
+        public static void TryCompanionDrink(GameBot bot)
+        {
+            if (bot?.IsPlayerCompanion != true || !Eligible(bot) || bot.IsCasting ||
+                bot.IsIncapacitated || bot.IsOnStableMasterRoute)
+                return;
+            bool fighting = bot.InCombat;
+            bool recovery = !fighting && CompanionOptions165.Choice(bot, CompanionOptions165.PotionsKey) == 1;
+            if (!fighting && !recovery || bot.IsSitting && (!recovery || !bot.IsRecoveryResting))
+                return;
+            if (bot.HealthPercent <= (fighting ? HealWhenHitPercent : HealAfterKillPercent) && !bot.IsAttacking &&
+                TryDrink(bot, Kind.Heal, recovery))
+                return;
+            bool usesPower = bot.MaxMana > 0 && bot.CharacterClass?.ManaStat is not null and not eStat.UNDEFINED;
+            if (usesPower && bot.ManaPercent <= (fighting ? PowerPercent : 35))
+                TryDrink(bot, Kind.Power, recovery);
+            else if (!usesPower && bot.EndurancePercent <= EndurancePercent)
+                TryDrink(bot, Kind.Endurance, recovery);
+        }
 
         /// <summary>GameBot.TakeDamage: an emergency heal draught.</summary>
         public static void OnDamaged(GameBot bot)
@@ -139,16 +169,33 @@ namespace DOL.GS
         }
 
         /// <summary>Drinks the first potion of this kind in the bag when its reuse timer is free. True when drunk.</summary>
-        public static bool TryDrink(GameBot bot, Kind kind)
+        public static bool TryDrink(GameBot bot, Kind kind, bool wakeToDrink = false)
         {
+            if (bot.IsSitting && (!wakeToDrink || !bot.IsRecoveryResting) || bot.IsCrowdControlled || kind == Kind.None)
+                return false;
+            DrinkState state = NextDrink.GetOrAdd(bot.DatabaseID, _ => new DrinkState());
+            if (Interlocked.CompareExchange(ref state.Drinking, 1, 0) != 0)
+                return false;
+            try
+            {
+                return TryUseBackpackPotion(bot, kind, state, wakeToDrink);
+            }
+            finally
+            {
+                Volatile.Write(ref state.Drinking, 0);
+            }
+        }
+
+        private static bool TryUseBackpackPotion(GameBot bot, Kind kind, DrinkState state, bool wakeToDrink)
+        {
+            long now = GameLoop.GameLoopTime;
+            int k = (int)kind;
+            int revision = bot.IsPlayerCompanion ? Volatile.Read(ref state.CompanionBagRevision) :
+                AutonomousBotEconomy.InventoryRevision(bot.DatabaseID);
+            if (!ShouldLook(now, Volatile.Read(ref state.SkipUntil[k]), Volatile.Read(ref state.SkipRevision[k]), revision))
+                return false;
             SpellLine line = SkillBase.GetSpellLine(GlobalSpellsLines.Potions_Effects);
             if (line == null)
-                return false;
-            long now = GameLoop.GameLoopTime;
-            DrinkState state = NextDrink.GetOrAdd(bot.DatabaseID, _ => new DrinkState());
-            int k = (int)kind;
-            int revision = AutonomousBotEconomy.InventoryRevision(bot.DatabaseID);
-            if (!ShouldLook(now, Volatile.Read(ref state.SkipUntil[k]), Volatile.Read(ref state.SkipRevision[k]), revision))
                 return false;
             ConcurrentDictionary<int, long> timers = state.Timers;
             for (eInventorySlot slot = eInventorySlot.FirstBackpack; slot <= eInventorySlot.LastBackpack; slot++)
@@ -168,8 +215,18 @@ namespace DOL.GS
                     MarkSkip(state, k, next, revision);
                     return false;
                 }
+                if (spell.CastTime > 0 && (bot.IsCasting || bot.attackComponent.AttackState) ||
+                    spell.IsHealing && spell.IsInstantCast && bot.IsAttacking)
+                    return false;
+                if (bot.IsSitting)
+                {
+                    if (!wakeToDrink || !bot.IsRecoveryResting || bot.InCombat)
+                        return false;
+                    bot.WakeRecoveryRest();
+                }
                 if (!bot.CastSpell(spell, line))
                     return false;
+                bot.Stealth(false);
                 timers[spell.SharedTimerGroup] = now + Math.Max(1, item.CanUseEvery) * 1000L;
                 UseCharge(bot, item);
                 FeatureCounters165.Add($"bot_potion_{kind.ToString().ToLowerInvariant()}");

@@ -16217,6 +16217,10 @@
     [
      "Shimmering_Mushroom_Cap",
      25
+    ],
+    [
+     "Shimmering_Mushroom_Cap1",
+     12
     ]
    ]
   },
@@ -25734,43 +25738,6 @@
     [
      "p165_prima_guard_s_gold_nose_ring",
      80
-    ]
-   ]
-  },
-  "goblin imperator": {
-   "drop_count": 2,
-   "items": [
-    [
-     "Fire-forged_Pike",
-     4
-    ],
-    [
-     "Hob_Hunter_Ring",
-     1
-    ],
-    [
-     "Woebegone_Miner_Boots",
-     15
-    ],
-    [
-     "Woebegone_Miner_Gauntlets",
-     4
-    ],
-    [
-     "Woebegone_Miner_Helm",
-     2
-    ],
-    [
-     "Woebegone_Miner_Leggings",
-     4
-    ],
-    [
-     "Woebegone_Miner_Sleeves",
-     15
-    ],
-    [
-     "Woebegone_Miner_Vest",
-     2
     ]
    ]
   },
@@ -42727,10 +42694,6 @@
     [
      "Water_Opal",
      8
-    ],
-    [
-     "Robe_of_the_Overseer",
-     35
     ]
    ]
   },

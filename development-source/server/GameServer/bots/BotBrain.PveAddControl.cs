@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using DOL.GS;
+using DOL.GS.Keeps;
 
 namespace DOL.AI.Brain
 {
@@ -24,6 +25,15 @@ namespace DOL.AI.Brain
     /// </summary>
     public partial class BotBrain
     {
+        private bool IsAddControlRealm(GameNPC npc) =>
+            npc.Realm == eRealm.None ||
+            Classic165Mode.IsOn && npc is GameKeepGuard && npc.Realm != Body.Realm;
+
+        private static bool IsBatteringKeepDoor(GroupFightBoard board) =>
+            Classic165Mode.IsOn && board.Members.Any(member =>
+                member.IsAttacking && member.TargetObject is GameKeepDoor { IsAlive: true, State: eDoorState.Closed });
+
+        private static bool SiegeGuardAdd(GameNPC npc, bool batteringDoor) => batteringDoor && npc is GameKeepGuard;
         /// <summary>True 1.65: add control goes before heals unless a groupmate is below this health.</summary>
         public const int AddControlBeforeHealsHealthPercent = 40;
         /// <summary>How long tanks and protection leave an add alone that a mezzer has started to mez (at least).</summary>
@@ -128,7 +138,8 @@ namespace DOL.AI.Brain
             HashSet<GameLiving> selectedTargets = board.SelectedTargets;
             HashSet<GameLiving> activeTargets = board.ActiveTargets;
             HashSet<GameLiving> attackedTargets = board.AttackedTargets;   // True 1.65: what somebody is hitting right now
-            if (activeTargets.Count == 0)
+            bool batteringDoor = activeTargets.Count == 0 && IsBatteringKeepDoor(board);
+            if (activeTargets.Count == 0 && !batteringDoor)
                 return false;
 
             foreach (GameLiving expired in _pveAddControlRetryUntil
@@ -142,7 +153,8 @@ namespace DOL.AI.Brain
             // or targeted by a groupmate's pet or elemental; untouched adds at full health first
             HashSet<GameLiving> petTargets = board.PetTargets;
             List<GameNPC> adds = board.NpcsOnGroup
-                .Where(npc => npc?.IsAlive == true && npc.Realm == eRealm.None && !BotPvpCrowdControl.PlayerLike(npc) &&
+                .Where(npc => npc?.IsAlive == true && IsAddControlRealm(npc) && !BotPvpCrowdControl.PlayerLike(npc) &&
+                    (activeTargets.Count > 0 || SiegeGuardAdd(npc, batteringDoor)) &&
                     bot.IsWithinRadius(npc, 1800) && !IsUntargetable(npc) && CanDefendAgainst(npc) &&
                     npc.TargetObject is GameLiving victim && (board.MemberSet.Contains(victim) || victim == ownPet) &&
                     !IsHandledAdd(classic165, selectedTargets.Contains(npc), attackedTargets.Contains(npc), npc == killTarget,
