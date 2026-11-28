@@ -61,8 +61,10 @@ namespace DOL.GS
             new(KindMysticCrystalLore, MysticCrystalLoreKey, "Mystic Crystal Lore",
                 ["Automatic (below 40% power)", "Save until below 25% power", "Off"],
                 bot => bot.GetAbility(AutonomousBotRealmAbilities.MysticCrystalLore) != null),
-            new(KindPotions, PotionsKey, "Potions",
-                ["Automatic (combat emergencies)", "Combat and recovery", "Off"], _ => true),
+            new(KindPotions, PotionsKey, "Potions at or below",
+                [$"Auto: HP {BotPotions165.HealWhenHitPercent}% ({BotPotions165.HealAfterKillPercent}% after kill with adds), power/end. {BotPotions165.PowerPercent}%",
+                 $"Also between fights: HP {BotPotions165.HealAfterKillPercent}%, power {BotPotions165.RecoveryPowerPercent}%, end. {BotPotions165.EndurancePercent}%",
+                 "Off"], _ => true),
             new(KindGroupHealing, GroupHealingKey, "Group heals",
                 ["Automatic", "Prefer spread heal", "Prefer group heal", "Single-target outside emergencies"],
                 bot => bot.HealGroup != null || bot.HealSpread != null || bot.HealInstantGroup != null ||

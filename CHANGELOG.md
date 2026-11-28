@@ -10,9 +10,9 @@ The newest version is first.
 - Weapon poison impacts show the effect on the victim without replaying the attacker's cast effects.
 - Guthlac Great Shield and several period items have usable charges again. Tuscar's War Hammer and four other items use models matching their equipment type.
 - All three Traveler's Inn dye merchants stock black cloth dye, realm-appropriate dye and enamel, and color removers.
-- Droom in Iarnvidiur's Lair drops both documented Mushroom Caps, and the leather cap has its health regeneration charge.
+- Droom in Iarnvidiur's Lair drops both documented Mushroom Caps, and the leather cap has its health regeneration charge. The offline database tool lists both drop chances and the leather cap's ten charges.
 - Companion power saving applies to keep doors. Loose hostile guards can be controlled, and Svasud bots release on tested courtyard paths.
-- Companion AI Options now cover Mystic Crystal Lore, backpack potions, and group healing.
+- Companion AI Options now cover Mystic Crystal Lore, backpack potions, and group healing. Potion choices show the HP, power, and endurance thresholds for combat and recovery.
 - Enchanters can maintain their timed party damage shield. Hired companions with a pet focus damage shield can opt in under AI Options; the channel defaults to Off.
 - Long companion AI Options lists scroll, and keyboard focus brings off-screen options into view.
 - The updater backs up edited documentation and continues in place. Other changed patch files offer an explicit back-up-and-update option or a fresh install with progress transfer.

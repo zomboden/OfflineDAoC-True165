@@ -31,6 +31,7 @@ namespace DOL.GS
         public const int HealWhenHitPercent = 35;
         public const int HealAfterKillPercent = 50;
         public const int PowerPercent = 20;
+        public const int RecoveryPowerPercent = 35;
         public const int EndurancePercent = 20;
         public const int MinBuyLevel = 20;
         public const int RichReserveMultiple = 5;
@@ -139,7 +140,7 @@ namespace DOL.GS
                 TryDrink(bot, Kind.Heal, recovery))
                 return;
             bool usesPower = bot.MaxMana > 0 && bot.CharacterClass?.ManaStat is not null and not eStat.UNDEFINED;
-            if (usesPower && bot.ManaPercent <= (fighting ? PowerPercent : 35))
+            if (usesPower && bot.ManaPercent <= (fighting ? PowerPercent : RecoveryPowerPercent))
                 TryDrink(bot, Kind.Power, recovery);
             else if (!usesPower && bot.EndurancePercent <= EndurancePercent)
                 TryDrink(bot, Kind.Endurance, recovery);
